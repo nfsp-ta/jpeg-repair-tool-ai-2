@@ -1,0 +1,9 @@
+{
+  "name": "jpeg-repair-tool-ai-2",
+  "version": "1.0.0",
+  "description": "Undo the CR-inserted-before-LF damage (text-mode transfer) in binary files such as JPEGs. Exact, no search, no dependencies.",
+  "bin": { "jpegfix2": "bin/jpegfix2.js" },
+  "scripts": { "test": "node --test" },
+  "license": "MIT",
+  "engines": { "node": ">=20" }
+}
