@@ -13,6 +13,10 @@ const USAGE = `jpegfix2 - undo the "CR inserted before every LF" damage (text-mo
   jpegfix2 recover ROOT --out DIR [--skip-ext php,htm]
                                                repair every file under ROOT into a mirrored tree under DIR (ROOT is never modified).
                                                JPEGs get ".jpg" appended. Files with the given extensions are copied unchanged.
+  jpegfix2 immich ROOT [--url URL] [--dry-run] [--ext jpg,png,gif]
+                                               repair the ORIGINAL pictures under ROOT in memory and upload them to Immich, one album per first-level
+                                               folder (Dir_N subfolders are merged). Thumbnails/previews are skipped. API key: env IMMICH_API_KEY,
+                                               server: --url or env IMMICH_URL. Both may be set in a .env file in the current directory. Re-running is safe (Immich reports duplicates).
   jpegfix2 verify DIR [--deep]                 check every .jpg under DIR (structure; --deep also fully decodes with ImageMagick if installed)
   jpegfix2 hashmatch CLEAN_DIR DIR             count repaired files that are byte-identical (SHA-256) to known-clean files (proof of exactness)
 `;
@@ -56,6 +60,20 @@ switch (cmd) {
     }
     fs.writeFileSync(path.join(outDir, 'recover-report.tsv'), rows.join('\n') + '\n');
     console.log(`${rows.length} files written to ${outDir}`); for (const [k, v] of Object.entries(tally).sort((a, b) => b[1] - a[1])) console.log(`  ${String(v).padStart(6)}  ${k}`);
+    break;
+  }
+  case 'immich': {
+    const immich = require('../src/immich');
+    try { process.loadEnvFile(); } catch { /* no .env in the current directory (or Node < 20.12): use the real environment */ }
+    const root = args[0]; if (!root) { console.error(USAGE); process.exit(2); }
+    const dryRun = args.includes('--dry-run'), url = opt(args, 'url') || process.env.IMMICH_URL, apiKey = process.env.IMMICH_API_KEY;
+    if (!dryRun && (!url || !apiKey)) { console.error('need --url (or IMMICH_URL) and IMMICH_API_KEY'); process.exit(2); }
+    const { items, skipped } = immich.plan(path.resolve(root), { exts: opt(args, 'ext') ? opt(args, 'ext').split(',') : undefined });
+    console.log(`${items.length} originals to upload; skipped: ${JSON.stringify(skipped)}`);
+    immich.upload(items, dryRun ? null : immich.client({ url, apiKey }), { log: console.log, dryRun }).then((t) => {
+      console.log(`${t.created} ${dryRun ? 'would be uploaded' : 'created'}, ${t.duplicate} duplicate, ${t.bad} failed verification, ${t.failed} failed`);
+      process.exit(t.bad || t.failed ? 1 : 0);
+    });
     break;
   }
   case 'verify': {
