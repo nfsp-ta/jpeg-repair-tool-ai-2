@@ -13,18 +13,6 @@ node bin/jpegfix2.js hashmatch CLEAN_DIR DIR    # how many repaired files are by
 npm test                                        # node --test, no dependencies (Node >= 20)
 ```
 
-## Why this repository exists
-
-It replaces [`jpeg-repair-tool-ai`](../jpeg-repair-tool-ai) (kept for reference only). That project was built on a **wrong diagnosis**: the damage was described as "every `0x0D` byte was deleted", which is how a different test file (`IMAG0705_bad.jpg`) really is damaged. The damaged forum gallery it was meant for is damaged the opposite way. Months of search machinery (beam search over missing bytes, row-shift correction, sibling-reference cascades) were designed for the wrong problem; the real one is solved by a loop over the bytes.
-
-The lesson worth keeping: **look at the real data first**. One look at the bytes of a real damaged file (`0d 0a` pairs where a clean file has `0a`) would have shown it. The numbers that identify the damage are cheap to compute (`diagnose`):
-
-| | clean JPEG | real damaged gallery file | `IMAG0705_bad.jpg` (the test pair) |
-|---|---|---|---|
-| lone `0x0A` (LF not preceded by CR) | ~1 per 270 bytes | **none** | all of them |
-| `0x0D 0x0A` pairs | almost none | one for every LF | none |
-| lone `0x0D` | ~1 per 300 bytes | ~1 per 300 bytes (unchanged) | none |
-
 ## Result on the forum gallery (12,607 files, 4,284 pictures)
 
 - Every JPEG parses after the fix and decodes with no warnings in ImageMagick (12,501 of 12,501; 400 of 400 sampled damaged files fail it as a control). An independent entropy-level check (every block decodes and the scan ends exactly at the end of the file) passed for all 11,627 files whose encoding it supports (the rest: 703 with restart markers, 109 progressive, 61 non-4:2:0, 1 other; these pass ImageMagick).
